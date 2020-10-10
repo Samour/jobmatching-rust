@@ -18,17 +18,35 @@ where
   T: JobMatchService + Send + Sync + 'static,
   C: ConfigService + Send + Sync + 'static,
 {
-  warp::path!("findJobsForWorker")
+  let jms1 = job_match_service.clone();
+  let cs1 = config_service.clone();
+  let find_jobs = warp::path!("findJobsForWorker")
+    .and(warp::get())
     .and(warp::query().map(|q: FindJobsQuery| q.worker_id))
     .and_then(move |worker_id| {
-      let jms_local = job_match_service.clone();
-      let cs_local = config_service.clone();
+      let jms_local = jms1.clone();
+      let cs_local = cs1.clone();
       async move {
         jms_local
           .find_best_jobs_for_worker(worker_id, cs_local.get_config().jobs_to_return)
           .await
           .map(|j| warp::reply::json(&j))
       }
-    })
-    .boxed()
+    });
+
+  let diagnose_stack = warp::path!("diagnoseStack")
+    .and(warp::get())
+    .and(warp::query().map(|q: FindJobsQuery| q.worker_id))
+    .and_then(move |worker_id| {
+      let jms_local = job_match_service.clone();
+      let cs_local = config_service.clone();
+      async move {
+        jms_local
+          .rate_jobs_for_worker(worker_id, cs_local.get_config().jobs_to_return)
+          .await
+          .map(|j| warp::reply::json(&j))
+      }
+    });
+
+  find_jobs.or(diagnose_stack).boxed()
 }

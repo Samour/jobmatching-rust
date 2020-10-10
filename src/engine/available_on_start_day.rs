@@ -1,6 +1,8 @@
 use super::match_rating::MatchRating;
+use super::match_rating::RatingResult;
 use crate::dto::{JobDto, WorkerDto};
 use chrono::Datelike;
+use std::collections::HashMap;
 
 pub struct AvailableOnStartDay {
   weight_value: f64,
@@ -13,7 +15,15 @@ impl AvailableOnStartDay {
 }
 
 impl MatchRating for AvailableOnStartDay {
-  fn determine_rating(&self, worker: &WorkerDto, job: &JobDto) -> f64 {
+  fn get_name(&self) -> &str {
+    "AvailableOnStartDay"
+  }
+
+  fn get_weight(&self) -> f64 {
+    self.weight_value
+  }
+
+  fn determine_rating(&self, worker: &WorkerDto, job: &JobDto) -> RatingResult {
     let day_required_idx = job.start_date.weekday().num_days_from_monday() + 1;
     let has_start_day = worker
       .availability
@@ -22,13 +32,15 @@ impl MatchRating for AvailableOnStartDay {
         Some(day) => day.day_index == day_required_idx,
         None => false,
       })
-      .count()
-      > 0;
-
-    if has_start_day {
+      .count();
+    let mut metrics: HashMap<String, f64> = HashMap::new();
+    metrics.insert(String::from("hasStartDay"), has_start_day as f64);
+    let rating = if has_start_day > 0 {
       self.weight_value
     } else {
       0.0
-    }
+    };
+
+    RatingResult { rating, metrics }
   }
 }

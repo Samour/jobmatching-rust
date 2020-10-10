@@ -1,3 +1,4 @@
+mod config;
 mod find_jobs;
 mod health;
 
@@ -16,7 +17,9 @@ where
 {
   warp::path!("api" / ..)
     .and(
-      find_jobs::route(job_match_service, config_service.clone()).or(health::route(config_service)),
+      find_jobs::route(job_match_service.clone(), config_service.clone())
+        .or(health::route(config_service))
+        .or(config::route(job_match_service)),
     )
     .boxed()
 }

@@ -1,5 +1,6 @@
 use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GeographicLocationDto {
@@ -69,4 +70,27 @@ pub struct WorkerDto {
   #[serde(rename = "hasDriversLicense")]
   pub has_drivers_license: bool,
   pub availability: Vec<Option<DayDto>>,
+}
+
+#[derive(Serialize)]
+pub struct RuleConfigDto {
+  pub name: String,
+  pub weight: f64,
+}
+
+#[derive(Serialize, Clone)]
+pub struct RuleResultDto {
+  #[serde(rename = "ruleName")]
+  pub rule_name: String,
+  pub weight: f64,
+  pub rating: f64,
+  pub metrics: HashMap<String, f64>,
+}
+
+#[derive(Serialize)]
+pub struct JobScoreDto {
+  #[serde(rename = "jobId")]
+  pub job_id: u32,
+  pub rating: f64,
+  pub rule_results: Vec<RuleResultDto>,
 }
