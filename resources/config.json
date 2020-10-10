@@ -3,6 +3,7 @@
   "jobs_to_return": 3,
   "base_url": "https://test.swipejobs.com/api",
   "weights": {
-    "available_on_start_days": 10
+    "available_on_start_days": 10,
+    "required_certificates": 2
   }
 }

@@ -3,6 +3,7 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 pub struct RatingWeights {
   pub available_on_start_days: f64,
+  pub required_certificates: f64,
 }
 
 #[derive(Deserialize)]

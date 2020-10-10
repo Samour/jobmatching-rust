@@ -9,6 +9,7 @@ mod services;
 use domain::config::RatingWeights;
 use engine::available_on_start_day::AvailableOnStartDay;
 use engine::match_rating::MatchRating;
+use engine::required_certificates::HasRequiredCertificates;
 use log::LevelFilter;
 use repositories::rest::RestRepositoryImpl;
 use services::config::{ConfigService, FileConfigService};
@@ -17,9 +18,10 @@ use simple_logger::SimpleLogger;
 use std::sync::Arc;
 
 fn build_match_ratings(weights: &RatingWeights) -> Vec<Box<dyn MatchRating + Send + Sync>> {
-    vec![Box::new(AvailableOnStartDay::new(
-        weights.available_on_start_days,
-    ))]
+    vec![
+        Box::new(AvailableOnStartDay::new(weights.available_on_start_days)),
+        Box::new(HasRequiredCertificates::new(weights.required_certificates)),
+    ]
 }
 
 #[tokio::main]
