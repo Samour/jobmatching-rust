@@ -8,6 +8,8 @@ mod services;
 
 use domain::config::RatingWeights;
 use engine::available_on_start_day::AvailableOnStartDay;
+use engine::distance::PythagorasDistanceEvaluator;
+use engine::job_location::JobLocation;
 use engine::match_rating::MatchRating;
 use engine::required_certificates::HasRequiredCertificates;
 use log::LevelFilter;
@@ -22,6 +24,10 @@ fn build_match_ratings(weights: &RatingWeights) -> Vec<Box<dyn MatchRating + Sen
     vec![
         Box::new(AvailableOnStartDay::new(weights.available_on_start_days)),
         Box::new(HasRequiredCertificates::new(weights.required_certificates)),
+        Box::new(JobLocation::new(
+            weights.job_location,
+            Box::new(PythagorasDistanceEvaluator::new()),
+        )),
     ]
 }
 
