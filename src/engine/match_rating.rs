@@ -1,5 +1,5 @@
-use crate::dto::{JobDto, WorkerDto};
 use std::collections::HashMap;
+use super::config::EvaluationContext;
 
 pub struct RatingResult {
   pub rating: f64,
@@ -9,5 +9,5 @@ pub struct RatingResult {
 pub trait MatchRating {
   fn get_name(&self) -> &str;
   fn get_weight(&self) -> f64;
-  fn determine_rating(&self, worker: &WorkerDto, job: &JobDto) -> RatingResult;
+  fn determine_rating(&self, ctx: &EvaluationContext) -> RatingResult;
 }

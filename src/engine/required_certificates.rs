@@ -1,5 +1,5 @@
+use super::config::EvaluationContext;
 use super::match_rating::{MatchRating, RatingResult};
-use crate::dto::{JobDto, WorkerDto};
 use std::collections::{HashMap, HashSet};
 
 const RATING_INCREMENT: f64 = 0.8;
@@ -23,14 +23,15 @@ impl MatchRating for HasRequiredCertificates {
     self.weight
   }
 
-  fn determine_rating(&self, worker: &WorkerDto, job: &JobDto) -> RatingResult {
+  fn determine_rating(&self, ctx: &EvaluationContext) -> RatingResult {
     log::debug!(
       "Running rule {} for Worker {} and Job {}",
       self.get_name(),
-      worker.user_id,
-      job.job_id
+      ctx.worker.user_id,
+      ctx.job.job_id
     );
-    let worker_certificates: HashSet<String> = worker
+    let worker_certificates: HashSet<String> = ctx
+      .worker
       .certificates
       .iter()
       .filter(|o| o.is_some())
@@ -39,20 +40,29 @@ impl MatchRating for HasRequiredCertificates {
     let mut weighted_score: f64 = 0.0;
     let mut has_certs: i32 = 0;
     let mut missing_certs: i32 = 0;
-    for required_cert in &job.required_certificates {
+    for required_cert in &ctx.job.required_certificates {
       if worker_certificates.contains(required_cert) {
         weighted_score += RATING_INCREMENT.powi(has_certs);
         has_certs += 1;
       } else {
+        if ctx.config.short_circuit_failures {
+          log::debug!("{} Short-circuiting rule failure", self.get_name());
+          return RatingResult {
+            rating: -1.0,
+            metrics: HashMap::new(),
+          };
+        }
         missing_certs += 1;
       }
     }
 
     let mut metrics: HashMap<String, f64> = HashMap::new();
-    metrics.insert(String::from("ratingIncrement"), RATING_INCREMENT);
-    metrics.insert(String::from("hasCertificates"), has_certs as f64);
-    metrics.insert(String::from("missingCertificates"), missing_certs as f64);
-    metrics.insert(String::from("weightedScore"), weighted_score);
+    if ctx.config.with_diagnosis {
+      metrics.insert(String::from("ratingIncrement"), RATING_INCREMENT);
+      metrics.insert(String::from("hasCertificates"), has_certs as f64);
+      metrics.insert(String::from("missingCertificates"), missing_certs as f64);
+      metrics.insert(String::from("weightedScore"), weighted_score);
+    }
     let rating = if missing_certs == 0 {
       weighted_score
     } else {

@@ -1,6 +1,5 @@
-use crate::dto::{
-  JobDto, JobScoreDto, RuleConfigDto, RuleResultDto, StackDiagnosisResponse, WorkerDto,
-};
+use crate::dto::{JobDto, JobScoreDto, RuleConfigDto, RuleResultDto, StackDiagnosisResponse};
+use crate::engine::config::{EvaluationConfig, EvaluationContext};
 use crate::engine::match_rating::MatchRating;
 use crate::errors::bad_request::BadRequestError;
 use crate::repositories::rest::RestRepository;
@@ -11,16 +10,15 @@ use std::time::Instant;
 use warp::reject::Rejection;
 
 #[derive(Clone)]
-struct JobScore {
-  job: JobDto,
+struct MatchScore {
   rating: f64,
   details: Vec<RuleResultDto>,
 }
 
-fn job_score_cmp(a: &JobScore, b: &JobScore) -> Ordering {
-  if a.rating > b.rating {
+fn match_score_cmp<T>(a: &(T, MatchScore), b: &(T, MatchScore)) -> Ordering {
+  if a.1.rating > b.1.rating {
     Ordering::Less
-  } else if a.rating < b.rating {
+  } else if a.1.rating < b.1.rating {
     Ordering::Greater
   } else {
     Ordering::Equal
@@ -58,19 +56,18 @@ impl JobMatchServiceImpl {
     }
   }
 
-  fn score_job_for_worker(&self, worker: &WorkerDto, job: JobDto) -> JobScore {
+  fn score_job_for_worker(&self, ctx: &EvaluationContext) -> MatchScore {
     log::debug!(
       "Calculating score for Worker {} and Job {}",
-      worker.user_id,
-      job.job_id
+      ctx.worker.user_id,
+      ctx.job.job_id
     );
-    let mut score = JobScore {
-      job,
+    let mut score = MatchScore {
       rating: 0.0,
       details: Vec::new(),
     };
     for match_rating in self.match_ratings.iter() {
-      let result = match_rating.determine_rating(worker, &score.job);
+      let result = match_rating.determine_rating(&ctx);
       if result.rating < 0.0 || score.rating < 0.0 {
         score.rating = -1.0;
       } else {
@@ -88,11 +85,14 @@ impl JobMatchServiceImpl {
     score
   }
 
+  // TODO if we split this into two methods (async get) and (sync score), we can cut out 1 of the clones in the
+  // trait impl fns
   async fn get_and_score_jobs(
     &self,
     worker_id: u32,
     job_limit: u32,
-  ) -> Result<Vec<JobScore>, Rejection> {
+    config: &EvaluationConfig,
+  ) -> Result<Vec<(JobDto, MatchScore)>, Rejection> {
     log::debug!("Calculating jobs for Worker {}", worker_id);
     let worker = self.rest_repository.find_worker_by_id(worker_id).await?;
     if let None = worker {
@@ -101,17 +101,32 @@ impl JobMatchServiceImpl {
     }
     let worker = worker.unwrap();
 
-    let mut jobs: Vec<JobScore> = self
-      .rest_repository
-      .find_all_jobs()
-      .await?
+    let jobs = self.rest_repository.find_all_jobs().await?;
+    let mut jobs: Vec<(&JobDto, MatchScore)> = jobs
       .iter()
-      .map(|job| self.score_job_for_worker(&worker, job.clone()))
+      .map(|job| {
+        (
+          job,
+          self.score_job_for_worker(&EvaluationContext::new(&worker, job, config)),
+        )
+      })
       .collect();
-    jobs.sort_by(job_score_cmp);
+    // TODO instead of scoring & collecting every job before sorting, instead push each element onto a max heap
+    // as they are scored. Set the max heap size = job_limit; after each push, if the heap exceeds that size, drop
+    // the smallest value. We can also store the current lowest score in the heap to short-circuit pushing then dropping
+    // too-small values.
+    // This will drastically cut down on the number of comparisons that need to be made compared to sorting the full
+    // list. Additionally, we can reduce the memory footprint somewhat (althoug this is less relevent as find_all_jobs
+    // already loads all data into memory anyway)
+    jobs.sort_by(match_score_cmp);
 
     log::debug!("Job scoring complete");
-    Ok(jobs[..(job_limit as usize)].to_vec())
+    Ok(
+      jobs[..(job_limit as usize)]
+        .iter()
+        .map(|j| (j.0.clone(), j.1.clone()))
+        .collect(),
+    )
   }
 }
 
@@ -134,14 +149,18 @@ impl JobMatchService for JobMatchServiceImpl {
     job_limit: u32,
   ) -> Result<StackDiagnosisResponse, Rejection> {
     let start = Instant::now();
+    let config = EvaluationConfig {
+      with_diagnosis: true,
+      short_circuit_failures: false,
+    };
     let jobs = self
-      .get_and_score_jobs(worker_id, job_limit)
+      .get_and_score_jobs(worker_id, job_limit, &config)
       .await?
       .iter()
       .map(|j| JobScoreDto {
-        job_id: j.job.job_id,
-        rating: j.rating,
-        rule_results: j.details.clone(),
+        job_id: j.0.job_id,
+        rating: j.1.rating,
+        rule_results: j.1.details.clone(),
       })
       .collect();
     let calculation_time_ms = start.elapsed().as_millis();
@@ -159,11 +178,15 @@ impl JobMatchService for JobMatchServiceImpl {
     job_limit: u32,
   ) -> Result<Vec<JobDto>, Rejection> {
     let start = Instant::now();
+    let config = EvaluationConfig {
+      with_diagnosis: false,
+      short_circuit_failures: true,
+    };
     let jobs = self
-      .get_and_score_jobs(worker_id, job_limit)
+      .get_and_score_jobs(worker_id, job_limit, &config)
       .await?
       .iter()
-      .map(|j| j.job.clone())
+      .map(|j| j.0.clone())
       .collect();
     let calculation_time_ms = start.elapsed().as_millis();
     log::debug!("Job stack calculated in {}ms", calculation_time_ms);
