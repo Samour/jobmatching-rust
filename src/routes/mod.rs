@@ -15,6 +15,8 @@ where
   CS: ConfigService + Send + Sync + 'static,
 {
   warp::path!("api" / ..)
-    .and(find_jobs::route(job_match_service, config_service.clone()).or(health::route(config_service)))
+    .and(
+      find_jobs::route(job_match_service, config_service.clone()).or(health::route(config_service)),
+    )
     .boxed()
 }

@@ -24,13 +24,10 @@ where
       let jms_local = job_match_service.clone();
       let cs_local = config_service.clone();
       async move {
-        let r_jobs = jms_local
+        jms_local
           .find_best_jobs_for_worker(worker_id, cs_local.get_config().jobs_to_return)
-          .await;
-        match r_jobs {
-          Ok(jobs) => Ok(warp::reply::json(&jobs)),
-          Err(_) => Err(warp::reject()),
-        }
+          .await
+          .map(|j| warp::reply::json(&j))
       }
     })
     .boxed()
