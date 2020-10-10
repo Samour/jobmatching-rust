@@ -1,0 +1,5 @@
+{
+  "app_name": "jobmatching",
+  "jobs_to_return": 3,
+  "base_url": "http://test.swipejobs.com/api"
+}
