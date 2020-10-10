@@ -26,7 +26,7 @@ impl RestRepository for RestRepositoryImpl {
     let path = format!("{}/{}", self.base_url, "workers");
     let response = reqwest::get(&path).await;
     if let Err(e) = response {
-      println!("Error retrieving data from Rest resource {:?}", e);
+      log::error!("Error retrieving data from Rest resource {:?}", e);
       return Err(warp::reject::custom(ServerError::new()));
     }
     let workers = response.unwrap().json().await;
@@ -34,7 +34,7 @@ impl RestRepository for RestRepositoryImpl {
     match workers {
       Ok(w) => Ok(w),
       Err(e) => {
-        println!("Error parsing worker data {:?}", e);
+        log::error!("Error parsing worker data {:?}", e);
         Err(warp::reject::custom(ServerError::new()))
       }
     }
@@ -50,8 +50,10 @@ impl RestRepository for RestRepositoryImpl {
       .collect();
 
     if matching_workers.len() > 0 {
+      log::debug!("Worker {} found", worker_id);
       Ok(Some(matching_workers[0].clone()))
     } else {
+      log::warn!("Could not find worker {}", worker_id);
       Ok(None)
     }
   }
@@ -60,7 +62,7 @@ impl RestRepository for RestRepositoryImpl {
     let path = format!("{}/{}", self.base_url, "jobs");
     let response = reqwest::get(&path).await;
     if let Err(e) = response {
-      println!("Error retrieving data from Rest resource {:?}", e);
+      log::error!("Error retrieving data from Rest resource {:?}", e);
       return Err(warp::reject::custom(ServerError::new()));
     }
 
@@ -68,7 +70,7 @@ impl RestRepository for RestRepositoryImpl {
     match jobs {
       Ok(j) => Ok(j),
       Err(e) => {
-        println!("Error parsing jobs data {:?}", e);
+        log::error!("Error parsing jobs data {:?}", e);
         Err(warp::reject::custom(ServerError::new()))
       }
     }

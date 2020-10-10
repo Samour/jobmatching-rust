@@ -14,3 +14,5 @@ warp = "0.2"
 chrono = { version = "0.4", features = ["serde", "rustc-serialize"] }
 reqwest = { version = "0.10", features = ["json"] }
 async-trait = "0.1.41"
+log = "0.4"
+simple_logger = "1.11.0"

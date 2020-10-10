@@ -94,3 +94,10 @@ pub struct JobScoreDto {
   pub rating: f64,
   pub rule_results: Vec<RuleResultDto>,
 }
+
+#[derive(Serialize)]
+pub struct StackDiagnosisResponse {
+  pub jobs: Vec<JobScoreDto>,
+  #[serde(rename = "calculationTimeMs")]
+  pub calculation_time_ms: u128,
+}

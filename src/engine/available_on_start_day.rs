@@ -24,6 +24,12 @@ impl MatchRating for AvailableOnStartDay {
   }
 
   fn determine_rating(&self, worker: &WorkerDto, job: &JobDto) -> RatingResult {
+    log::debug!(
+      "Running rule {} for worker {} on job {}",
+      self.get_name(),
+      worker.user_id,
+      job.job_id
+    );
     let day_required_idx = job.start_date.weekday().num_days_from_monday() + 1;
     let has_start_day = worker
       .availability
@@ -41,6 +47,7 @@ impl MatchRating for AvailableOnStartDay {
       0.0
     };
 
+    log::debug!("Rule {} completed; score: {}", self.get_name(), rating);
     RatingResult { rating, metrics }
   }
 }

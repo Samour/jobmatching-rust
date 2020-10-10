@@ -18,6 +18,7 @@ impl FileConfigService {
   }
 
   pub fn load_config(&mut self, fname: &str) -> Result<(), std::io::Error> {
+    log::info!("Loading config from {}", fname);
     let mut content = String::new();
     File::open(fname)?.read_to_string(&mut content)?;
     self.config = serde_json::from_str(&content)?;
@@ -28,6 +29,11 @@ impl FileConfigService {
 
 impl ConfigService for FileConfigService {
   fn get_config(&self) -> &Config {
-    self.config.as_ref().unwrap()
+    match &self.config {
+      Some(c) => &c,
+      None => {
+        panic!("Attempted to access config, but config has not been loaded from file");
+      }
+    }
   }
 }

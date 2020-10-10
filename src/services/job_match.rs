@@ -1,10 +1,13 @@
-use crate::dto::{JobDto, JobScoreDto, RuleConfigDto, RuleResultDto, WorkerDto};
+use crate::dto::{
+  JobDto, JobScoreDto, RuleConfigDto, RuleResultDto, StackDiagnosisResponse, WorkerDto,
+};
 use crate::engine::match_rating::MatchRating;
 use crate::errors::bad_request::BadRequestError;
 use crate::repositories::rest::RestRepository;
 use async_trait::async_trait;
 use std::cmp::Ordering;
 use std::sync::Arc;
+use std::time::Instant;
 use warp::reject::Rejection;
 
 #[derive(Clone)]
@@ -31,7 +34,7 @@ pub trait JobMatchService {
     &self,
     worker_id: u32,
     job_limit: u32,
-  ) -> Result<Vec<JobScoreDto>, Rejection>;
+  ) -> Result<StackDiagnosisResponse, Rejection>;
   async fn find_best_jobs_for_worker(
     &self,
     worker_id: u32,
@@ -56,6 +59,11 @@ impl JobMatchServiceImpl {
   }
 
   fn score_job_for_worker(&self, worker: &WorkerDto, job: JobDto) -> JobScore {
+    log::debug!(
+      "Calculating score for Worker {} and Job {}",
+      worker.user_id,
+      job.job_id
+    );
     let mut score = JobScore {
       job,
       rating: 0.0,
@@ -76,6 +84,7 @@ impl JobMatchServiceImpl {
       })
     }
 
+    log::debug!("Score calculated: {}", score.rating);
     score
   }
 
@@ -84,8 +93,10 @@ impl JobMatchServiceImpl {
     worker_id: u32,
     job_limit: u32,
   ) -> Result<Vec<JobScore>, Rejection> {
+    log::debug!("Calculating jobs for Worker {}", worker_id);
     let worker = self.rest_repository.find_worker_by_id(worker_id).await?;
     if let None = worker {
+      log::warn!("Could not find worker {}", worker_id);
       return Err(warp::reject::custom(BadRequestError::new()));
     }
     let worker = worker.unwrap();
@@ -99,6 +110,7 @@ impl JobMatchServiceImpl {
       .collect();
     jobs.sort_by(job_score_cmp);
 
+    log::debug!("Job scoring complete");
     Ok(jobs[..(job_limit as usize)].to_vec())
   }
 }
@@ -120,19 +132,25 @@ impl JobMatchService for JobMatchServiceImpl {
     &self,
     worker_id: u32,
     job_limit: u32,
-  ) -> Result<Vec<JobScoreDto>, Rejection> {
-    Ok(
-      self
-        .get_and_score_jobs(worker_id, job_limit)
-        .await?
-        .iter()
-        .map(|j| JobScoreDto {
-          job_id: j.job.job_id,
-          rating: j.rating,
-          rule_results: j.details.clone(),
-        })
-        .collect(),
-    )
+  ) -> Result<StackDiagnosisResponse, Rejection> {
+    let start = Instant::now();
+    let jobs = self
+      .get_and_score_jobs(worker_id, job_limit)
+      .await?
+      .iter()
+      .map(|j| JobScoreDto {
+        job_id: j.job.job_id,
+        rating: j.rating,
+        rule_results: j.details.clone(),
+      })
+      .collect();
+    let calculation_time_ms = start.elapsed().as_millis();
+    log::debug!("Diagnosis calculated in {}ms", calculation_time_ms);
+
+    Ok(StackDiagnosisResponse {
+      jobs,
+      calculation_time_ms,
+    })
   }
 
   async fn find_best_jobs_for_worker(
@@ -140,13 +158,16 @@ impl JobMatchService for JobMatchServiceImpl {
     worker_id: u32,
     job_limit: u32,
   ) -> Result<Vec<JobDto>, Rejection> {
-    Ok(
-      self
-        .get_and_score_jobs(worker_id, job_limit)
-        .await?
-        .iter()
-        .map(|j| j.job.clone())
-        .collect(),
-    )
+    let start = Instant::now();
+    let jobs = self
+      .get_and_score_jobs(worker_id, job_limit)
+      .await?
+      .iter()
+      .map(|j| j.job.clone())
+      .collect();
+    let calculation_time_ms = start.elapsed().as_millis();
+    log::debug!("Job stack calculated in {}ms", calculation_time_ms);
+
+    Ok(jobs)
   }
 }
