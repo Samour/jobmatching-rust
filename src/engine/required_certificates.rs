@@ -30,12 +30,12 @@ impl MatchRating for HasRequiredCertificates {
       ctx.worker.user_id,
       ctx.job.job_id
     );
-    let worker_certificates: HashSet<String> = ctx
+    let worker_certificates: HashSet<&String> = ctx
       .worker
       .certificates
       .iter()
       .filter(|o| o.is_some())
-      .map(|o| o.as_ref().unwrap().clone())
+      .map(|o| o.as_ref().unwrap())
       .collect();
     let mut weighted_score: f64 = 0.0;
     let mut has_certs: i32 = 0;

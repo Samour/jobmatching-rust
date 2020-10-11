@@ -42,17 +42,16 @@ impl RestRepository for RestRepositoryImpl {
   }
 
   async fn find_worker_by_id(&self, worker_id: u32) -> Result<Option<WorkerDto>, Rejection> {
-    let matching_workers: Vec<WorkerDto> = self
+    let mut matching_workers: Vec<WorkerDto> = self
       .find_all_workers()
       .await?
-      .iter()
+      .into_iter()
       .filter(|w| w.user_id == worker_id)
-      .cloned()
       .collect();
 
     if matching_workers.len() > 0 {
       log::debug!("Worker {} found", worker_id);
-      Ok(Some(matching_workers[0].clone()))
+      Ok(Some(matching_workers.swap_remove(0)))
     } else {
       log::warn!("Could not find worker {}", worker_id);
       Ok(None)
@@ -78,17 +77,16 @@ impl RestRepository for RestRepositoryImpl {
   }
 
   async fn find_job_by_id(&self, job_id: u32) -> Result<Option<JobDto>, Rejection> {
-    let matching_jobs: Vec<JobDto> = self
+    let mut matching_jobs: Vec<JobDto> = self
       .find_all_jobs()
       .await?
-      .iter()
+      .into_iter()
       .filter(|j| j.job_id == job_id)
-      .cloned()
       .collect();
 
     if matching_jobs.len() > 0 {
       log::debug!("Job {} found", job_id);
-      Ok(Some(matching_jobs[0].clone()))
+      Ok(Some(matching_jobs.swap_remove(0)))
     } else {
       log::warn!("Could not find Job {}", job_id);
       Ok(None)
