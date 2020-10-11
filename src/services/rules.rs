@@ -1,22 +1,11 @@
+use crate::collections::CappedHeap;
 use crate::dto::{RuleConfigDto, RuleResultDto};
 use crate::engine::config::EvaluationContext;
 use crate::engine::match_rating::MatchRating;
-use std::cmp::Ordering;
 
-#[derive(Clone)]
 pub struct MatchScore {
   pub rating: f64,
   pub details: Vec<RuleResultDto>,
-}
-
-fn match_score_cmp<T>(a: &(T, MatchScore), b: &(T, MatchScore)) -> Ordering {
-  if a.1.rating > b.1.rating {
-    Ordering::Less
-  } else if a.1.rating < b.1.rating {
-    Ordering::Greater
-  } else {
-    Ordering::Equal
-  }
 }
 
 pub trait RulesService {
@@ -90,23 +79,25 @@ impl RulesService for RulesServiceImpl {
     limit: u32,
   ) -> Vec<(&'a EvaluationContext<'b, 'c, 'd>, MatchScore)> {
     log::debug!("Scoring & ranking matches");
-    let mut matches: Vec<(&EvaluationContext, MatchScore)> = ctxs
-      .iter()
-      .map(|c| (c, self.score_job_for_worker(&c)))
-      .collect();
-    // TODO instead of scoring & collecting every job before sorting, instead push each element onto a max heap
-    // as they are scored. Set the max heap size = job_limit; after each push, if the heap exceeds that size, drop
-    // the smallest value. We can also store the current lowest score in the heap to short-circuit pushing then dropping
-    // too-small values.
-    // This will drastically cut down on the number of comparisons that need to be made compared to sorting the full
-    // list. Additionally, we can reduce the memory footprint somewhat (althoug this is less relevent as find_all_jobs
-    // already loads all data into memory anyway)
-    matches.sort_by(match_score_cmp);
 
-    log::debug!("Job scoring complete");
-    matches[..(limit as usize)]
-      .into_iter()
-      .map(|j| (j.0, j.1.clone()))
-      .collect()
+    let mut result_heap: CappedHeap<(&EvaluationContext, MatchScore)> =
+      CappedHeap::new(limit as usize);
+    for ctx in ctxs {
+      let result = self.score_job_for_worker(&ctx);
+      if result.rating >= 0.0 {
+        result_heap.push(result.rating, (ctx, result));
+      }
+    }
+
+    let mut results: Vec<(&EvaluationContext, MatchScore)> = Vec::new();
+    loop {
+      match result_heap.pop() {
+        Some(n) => results.push(n),
+        None => break,
+      }
+    }
+    results.reverse();
+
+    results
   }
 }

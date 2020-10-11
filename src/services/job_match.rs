@@ -74,8 +74,8 @@ impl JobMatchServiceImpl {
           .collect(),
         job_limit,
       )
-      .iter()
-      .map(|r| (r.0.job, r.1.clone()))
+      .into_iter()
+      .map(|r| (r.0.job, r.1))
       .collect()
   }
 }
@@ -156,7 +156,6 @@ impl JobMatchService for JobMatchServiceImpl {
   ) -> Result<Vec<JobDto>, Rejection> {
     let start = Instant::now();
     let (worker, jobs) = self.load_data(worker_id).await?;
-
     let config = EvaluationConfig {
       with_diagnosis: false,
       short_circuit_failures: true,

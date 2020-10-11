@@ -5,6 +5,7 @@ mod errors;
 mod repositories;
 mod routes;
 mod services;
+mod collections;
 
 use domain::config::RatingWeights;
 use engine::available_on_start_day::AvailableOnStartDay;
@@ -42,7 +43,7 @@ async fn main() {
     // Initialisation
     SimpleLogger::new()
         .with_level(LevelFilter::Warn)
-        .with_module_level("jobmatching_rust", LevelFilter::Trace)
+        .with_module_level("jobmatching_rust", LevelFilter::Debug)
         .init()
         .unwrap();
     let mut config_service = FileConfigService::new();
