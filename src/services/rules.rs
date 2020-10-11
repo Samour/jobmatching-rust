@@ -61,19 +61,23 @@ impl RulesService for RulesServiceImpl {
       rating: 0.0,
       details: Vec::new(),
     };
-    for match_rating in self.match_ratings.iter() {
+    for match_rating in &self.match_ratings {
       let result = match_rating.determine_rating(&ctx);
-      if result.rating < 0.0 || score.rating < 0.0 {
-        score.rating = -1.0;
-      } else {
-        score.rating += result.rating;
-      }
       score.details.push(RuleResultDto {
         rule_name: String::from(match_rating.get_name()),
         weight: match_rating.get_weight(),
         rating: result.rating,
         metrics: result.metrics,
-      })
+      });
+      if result.rating < 0.0 || score.rating < 0.0 {
+        score.rating = -1.0;
+        if ctx.config.short_circuit_failures {
+          log::debug!("Short-circuit falure; not running further rules");
+          break;
+        }
+      } else {
+        score.rating += result.rating;
+      }
     }
 
     log::debug!("Score calculated: {}", score.rating);
