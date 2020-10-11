@@ -35,11 +35,12 @@ where
       }
     });
 
-  let diagnose_workers = warp::path!("diagnoseWorkers")
+  let wms2 = worker_match_service.clone();
+  let diagnose_workers = warp::path!("diagnoseWorkersForJob")
     .and(warp::get())
     .and(warp::query().map(|q: FindWorkersQuery| q.job_id))
     .and_then(move |job_id| {
-      let wms_local = worker_match_service.clone();
+      let wms_local = wms2.clone();
       let cs_local = config_service.clone();
       async move {
         wms_local
@@ -49,5 +50,18 @@ where
       }
     });
 
-  find_workers.or(diagnose_workers).boxed()
+  let count_workers = warp::path!("countWorkersforJob")
+    .and(warp::get())
+    .and(warp::query().map(|q: FindWorkersQuery| q.job_id))
+    .and_then(move |job_id| {
+      let wms_local = worker_match_service.clone();
+      async move {
+        wms_local
+          .count_matching_workers(job_id)
+          .await
+          .map(|c| warp::reply::json(&c))
+      }
+    });
+
+  find_workers.or(diagnose_workers).or(count_workers).boxed()
 }

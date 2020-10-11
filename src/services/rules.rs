@@ -16,6 +16,7 @@ pub trait RulesService {
     ctxs: &'a Vec<EvaluationContext<'b, 'c, 'd>>,
     limit: u32,
   ) -> Vec<(&'a EvaluationContext<'b, 'c, 'd>, MatchScore)>;
+  fn count_satisfied(&self, ctxs: &Vec<EvaluationContext>) -> usize;
 }
 
 pub struct RulesServiceImpl {
@@ -99,5 +100,16 @@ impl RulesService for RulesServiceImpl {
     results.reverse();
 
     results
+  }
+
+  fn count_satisfied(&self, ctxs: &Vec<EvaluationContext>) -> usize {
+    log::debug!("Counting matching entries");
+
+    ctxs
+      .iter()
+      .map(|c| self.score_job_for_worker(c))
+      .map(|m| m.rating)
+      .filter(|r| *r >= 0.0)
+      .count()
   }
 }

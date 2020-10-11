@@ -20,6 +20,7 @@ pub trait WorkerMatchService {
     job_id: u32,
     worker_limit: u32,
   ) -> Result<Vec<WorkerDto>, Rejection>;
+  async fn count_matching_workers(&self, job_id: u32) -> Result<usize, Rejection>;
 }
 
 pub struct WorkerMatchServiceImpl {
@@ -128,5 +129,24 @@ impl WorkerMatchService for WorkerMatchServiceImpl {
     log::debug!("Matching workers calculated in {}ms", calculation_time_ms);
 
     Ok(workers)
+  }
+
+  async fn count_matching_workers(&self, job_id: u32) -> Result<usize, Rejection> {
+    let start = Instant::now();
+    let (job, workers) = self.load_data(job_id).await?;
+    let config = EvaluationConfig {
+      with_diagnosis: false,
+      short_circuit_failures: true,
+    };
+    let count = self.rules_service.count_satisfied(
+      &workers
+        .iter()
+        .map(|w| EvaluationContext::new(w, &job, &config))
+        .collect(),
+    );
+    let calculation_time_ms = start.elapsed().as_millis();
+    log::debug!("Matching workers counted in {}ms", calculation_time_ms);
+
+    Ok(count)
   }
 }
