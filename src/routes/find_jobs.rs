@@ -1,13 +1,21 @@
 use crate::services::config::ConfigService;
 use crate::services::job_match::JobMatchService;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::sync::Arc;
 use warp::Filter;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 struct FindJobsQuery {
   #[serde(rename = "workerId")]
   worker_id: u32,
+}
+
+#[derive(Deserialize)]
+struct DiagnoseJobQuery {
+  #[serde(rename = "workerId")]
+  worker_id: u32,
+  #[serde(rename = "jobId")]
+  job_id: u32,
 }
 
 pub fn route<T, C>(
@@ -34,11 +42,12 @@ where
       }
     });
 
+  let jms2 = job_match_service.clone();
   let diagnose_stack = warp::path!("diagnoseStack")
     .and(warp::get())
     .and(warp::query().map(|q: FindJobsQuery| q.worker_id))
     .and_then(move |worker_id| {
-      let jms_local = job_match_service.clone();
+      let jms_local = jms2.clone();
       let cs_local = config_service.clone();
       async move {
         jms_local
@@ -48,5 +57,19 @@ where
       }
     });
 
-  find_jobs.or(diagnose_stack).boxed()
+  let diagnose_job = warp::path!("diagnoseJob")
+    .and(warp::get())
+    .and(warp::query().map(|q: DiagnoseJobQuery| q.worker_id))
+    .and(warp::query().map(|q: DiagnoseJobQuery| q.job_id))
+    .and_then(move |worker_id, job_id| {
+      let jms_local = job_match_service.clone();
+      async move {
+        jms_local
+          .rate_job_for_worker(worker_id, job_id)
+          .await
+          .map(|j| warp::reply::json(&j))
+      }
+    });
+
+  find_jobs.or(diagnose_stack).or(diagnose_job).boxed()
 }

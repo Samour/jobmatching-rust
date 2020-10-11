@@ -15,6 +15,11 @@ pub trait JobMatchService {
     worker_id: u32,
     job_limit: u32,
   ) -> Result<StackDiagnosisResponse, Rejection>;
+  async fn rate_job_for_worker(
+    &self,
+    worker_id: u32,
+    job_id: u32,
+  ) -> Result<JobScoreDto, Rejection>;
   async fn find_best_jobs_for_worker(
     &self,
     worker_id: u32,
@@ -104,6 +109,43 @@ impl JobMatchService for JobMatchServiceImpl {
     Ok(StackDiagnosisResponse {
       jobs,
       calculation_time_ms,
+    })
+  }
+
+  async fn rate_job_for_worker(
+    &self,
+    worker_id: u32,
+    job_id: u32,
+  ) -> Result<JobScoreDto, Rejection> {
+    let (worker, job) = tokio::join!(
+      self.rest_repository.find_worker_by_id(worker_id),
+      self.rest_repository.find_job_by_id(job_id)
+    );
+    let worker = worker?;
+    let job = job?;
+    if let None = worker {
+      log::warn!("Could not find Worker {}", worker_id);
+      return Err(warp::reject::custom(BadRequestError::new()));
+    }
+    if let None = job {
+      log::warn!("Could not find Job {}", job_id);
+      return Err(warp::reject::custom(BadRequestError::new()));
+    }
+    let worker = worker.unwrap();
+    let job = job.unwrap();
+
+    let config = EvaluationConfig {
+      with_diagnosis: true,
+      short_circuit_failures: false,
+    };
+    let result = self
+      .rules_service
+      .score_job_for_worker(&EvaluationContext::new(&worker, &job, &config));
+
+    Ok(JobScoreDto {
+      job_id,
+      rating: result.rating,
+      rule_results: result.details,
     })
   }
 

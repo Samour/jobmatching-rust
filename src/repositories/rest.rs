@@ -8,6 +8,7 @@ pub trait RestRepository {
   async fn find_all_workers(&self) -> std::result::Result<Vec<WorkerDto>, Rejection>;
   async fn find_worker_by_id(&self, worker_id: u32) -> Result<Option<WorkerDto>, Rejection>;
   async fn find_all_jobs(&self) -> Result<Vec<JobDto>, Rejection>;
+  async fn find_job_by_id(&self, job_id: u32) -> Result<Option<JobDto>, Rejection>;
 }
 
 pub struct RestRepositoryImpl {
@@ -73,6 +74,24 @@ impl RestRepository for RestRepositoryImpl {
         log::error!("Error parsing jobs data {:?}", e);
         Err(warp::reject::custom(ServerError::new()))
       }
+    }
+  }
+
+  async fn find_job_by_id(&self, job_id: u32) -> Result<Option<JobDto>, Rejection> {
+    let matching_jobs: Vec<JobDto> = self
+      .find_all_jobs()
+      .await?
+      .iter()
+      .filter(|j| j.job_id == job_id)
+      .cloned()
+      .collect();
+
+    if matching_jobs.len() > 0 {
+      log::debug!("Job {} found", job_id);
+      Ok(Some(matching_jobs[0].clone()))
+    } else {
+      log::warn!("Could not find Job {}", job_id);
+      Ok(None)
     }
   }
 }
