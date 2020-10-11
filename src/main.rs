@@ -8,9 +8,12 @@ mod services;
 
 use domain::config::RatingWeights;
 use engine::available_on_start_day::AvailableOnStartDay;
+use engine::can_drive::CanDrive;
 use engine::distance::PythagorasDistanceEvaluator;
 use engine::job_location::JobLocation;
+use engine::job_positons::JobPositions;
 use engine::match_rating::MatchRating;
+use engine::pay_rate::PayRate;
 use engine::required_certificates::HasRequiredCertificates;
 use log::LevelFilter;
 use repositories::rest::RestRepositoryImpl;
@@ -28,6 +31,9 @@ fn build_match_ratings(weights: &RatingWeights) -> Vec<Box<dyn MatchRating + Sen
             weights.job_location,
             Box::new(PythagorasDistanceEvaluator::new()),
         )),
+        Box::new(PayRate::new(weights.pay_rate)),
+        Box::new(CanDrive::new()),
+        Box::new(JobPositions::new(weights.job_positions)),
     ]
 }
 

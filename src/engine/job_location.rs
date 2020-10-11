@@ -63,6 +63,10 @@ impl MatchRating for JobLocation {
     let mut metrics: HashMap<String, f64> = HashMap::new();
     if ctx.config.with_diagnosis {
       metrics.insert(String::from("distance"), distance);
+      metrics.insert(
+        String::from("maxJobDistance"),
+        ctx.worker.job_search_address.max_job_distance,
+      );
     }
     if distance > ctx.worker.job_search_address.max_job_distance {
       log::debug!("Job location is too far away");
@@ -72,11 +76,10 @@ impl MatchRating for JobLocation {
       }
     } else {
       log::debug!("Job location is within search distance");
-      RatingResult {
-        rating: self.get_weight() * (ctx.worker.job_search_address.max_job_distance - distance)
-          / ctx.worker.job_search_address.max_job_distance,
-        metrics,
-      }
+      let rating = self.get_weight() * (ctx.worker.job_search_address.max_job_distance - distance)
+        / ctx.worker.job_search_address.max_job_distance;
+      log::debug!("Rule {} completed with rating {}", self.get_name(), rating);
+      RatingResult { rating, metrics }
     }
   }
 }

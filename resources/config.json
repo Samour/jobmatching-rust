@@ -5,6 +5,8 @@
   "weights": {
     "available_on_start_days": 10,
     "required_certificates": 2,
-    "job_location": 8
+    "job_location": 8,
+    "pay_rate": 0.4,
+    "job_positions": 1
   }
 }

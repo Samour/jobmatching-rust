@@ -4,3 +4,6 @@ pub mod required_certificates;
 pub mod config;
 pub mod distance;
 pub mod job_location;
+pub mod pay_rate;
+pub mod can_drive;
+pub mod job_positons;
