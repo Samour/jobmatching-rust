@@ -1,3 +1,4 @@
+mod collections;
 mod domain;
 mod dto;
 mod engine;
@@ -5,7 +6,6 @@ mod errors;
 mod repositories;
 mod routes;
 mod services;
-mod collections;
 
 use domain::config::RatingWeights;
 use engine::available_on_start_day::AvailableOnStartDay;
@@ -21,6 +21,7 @@ use repositories::rest::RestRepositoryImpl;
 use services::config::{ConfigService, FileConfigService};
 use services::job_match::JobMatchServiceImpl;
 use services::rules::RulesServiceImpl;
+use services::worker_match::WorkerMatchServiceImpl;
 use simple_logger::SimpleLogger;
 use std::sync::Arc;
 
@@ -56,6 +57,10 @@ async fn main() {
     )));
     let job_match_service = Arc::new(JobMatchServiceImpl::new(
         rules_service.clone(),
+        rest_repository.clone(),
+    ));
+    let worker_match_service = Arc::new(WorkerMatchServiceImpl::new(
+        rules_service.clone(),
         rest_repository,
     ));
 
@@ -64,6 +69,7 @@ async fn main() {
     warp::serve(routes::route(
         rules_service,
         job_match_service,
+        worker_match_service,
         Arc::new(config_service),
     ))
     .run(([127, 0, 0, 1], 3030))

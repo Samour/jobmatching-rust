@@ -88,7 +88,9 @@ pub struct RuleResultDto {
 }
 
 #[derive(Serialize)]
-pub struct JobScoreDto {
+pub struct MatchScoreDto {
+  #[serde(rename = "workerId")]
+  pub worker_id: u32,
   #[serde(rename = "jobId")]
   pub job_id: u32,
   pub rating: f64,
@@ -97,7 +99,14 @@ pub struct JobScoreDto {
 
 #[derive(Serialize)]
 pub struct StackDiagnosisResponse {
-  pub jobs: Vec<JobScoreDto>,
+  pub jobs: Vec<MatchScoreDto>,
+  #[serde(rename = "calculationTimeMs")]
+  pub calculation_time_ms: u128,
+}
+
+#[derive(Serialize)]
+pub struct WorkersDiagnosisResponse {
+  pub workers: Vec<MatchScoreDto>,
   #[serde(rename = "calculationTimeMs")]
   pub calculation_time_ms: u128,
 }

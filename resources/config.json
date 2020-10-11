@@ -1,6 +1,7 @@
 {
   "app_name": "jobmatching",
   "jobs_to_return": 3,
+  "workers_to_return": 5,
   "base_url": "https://test.swipejobs.com/api",
   "weights": {
     "available_on_start_days": 10,

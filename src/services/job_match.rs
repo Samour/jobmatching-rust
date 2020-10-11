@@ -1,5 +1,5 @@
 use super::rules::{MatchScore, RulesService};
-use crate::dto::{JobDto, JobScoreDto, StackDiagnosisResponse, WorkerDto};
+use crate::dto::{JobDto, MatchScoreDto, StackDiagnosisResponse, WorkerDto};
 use crate::engine::config::{EvaluationConfig, EvaluationContext};
 use crate::errors::bad_request::BadRequestError;
 use crate::repositories::rest::RestRepository;
@@ -19,7 +19,7 @@ pub trait JobMatchService {
     &self,
     worker_id: u32,
     job_id: u32,
-  ) -> Result<JobScoreDto, Rejection>;
+  ) -> Result<MatchScoreDto, Rejection>;
   async fn find_best_jobs_for_worker(
     &self,
     worker_id: u32,
@@ -97,14 +97,15 @@ impl JobMatchService for JobMatchServiceImpl {
     let jobs = self
       .score_jobs(&worker, &jobs, job_limit, &config)
       .into_iter()
-      .map(|j| JobScoreDto {
+      .map(|j| MatchScoreDto {
+        worker_id,
         job_id: j.0.job_id,
         rating: j.1.rating,
         rule_results: j.1.details,
       })
       .collect();
     let calculation_time_ms = start.elapsed().as_millis();
-    log::debug!("Diagnosis calculated in {}ms", calculation_time_ms);
+    log::debug!("Stack diagnosis calculated in {}ms", calculation_time_ms);
 
     Ok(StackDiagnosisResponse {
       jobs,
@@ -116,7 +117,7 @@ impl JobMatchService for JobMatchServiceImpl {
     &self,
     worker_id: u32,
     job_id: u32,
-  ) -> Result<JobScoreDto, Rejection> {
+  ) -> Result<MatchScoreDto, Rejection> {
     let (worker, job) = tokio::join!(
       self.rest_repository.find_worker_by_id(worker_id),
       self.rest_repository.find_job_by_id(job_id)
@@ -142,7 +143,8 @@ impl JobMatchService for JobMatchServiceImpl {
       .rules_service
       .score_job_for_worker(&EvaluationContext::new(&worker, &job, &config));
 
-    Ok(JobScoreDto {
+    Ok(MatchScoreDto {
+      worker_id,
       job_id,
       rating: result.rating,
       rule_results: result.details,

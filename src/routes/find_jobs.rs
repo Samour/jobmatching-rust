@@ -2,6 +2,7 @@ use crate::services::config::ConfigService;
 use crate::services::job_match::JobMatchService;
 use serde::Deserialize;
 use std::sync::Arc;
+use warp::filters::BoxedFilter;
 use warp::Filter;
 
 #[derive(Deserialize)]
@@ -18,13 +19,13 @@ struct DiagnoseJobQuery {
   job_id: u32,
 }
 
-pub fn route<T, C>(
-  job_match_service: Arc<T>,
-  config_service: Arc<C>,
-) -> warp::filters::BoxedFilter<(impl warp::Reply,)>
+pub fn route<JMS, CS>(
+  job_match_service: Arc<JMS>,
+  config_service: Arc<CS>,
+) -> BoxedFilter<(impl warp::Reply,)>
 where
-  T: JobMatchService + Send + Sync + 'static,
-  C: ConfigService + Send + Sync + 'static,
+  JMS: JobMatchService + Send + Sync + 'static,
+  CS: ConfigService + Send + Sync + 'static,
 {
   let jms1 = job_match_service.clone();
   let cs1 = config_service.clone();
